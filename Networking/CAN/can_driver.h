@@ -592,7 +592,7 @@ void setupCANRX(irq_handler_t handler) {
     uint can_rx_offset = pio_add_program(pio_1, &can_rx_program) ;
 
     // Initialize the PIO programs
-    can_rx_program_init(pio_1, can_rx_sm, can_rx_offset, CAN_TX+1, CLKDIV) ;
+    can_rx_program_init(pio_1, can_rx_sm, can_rx_offset, CAN_RX, CLKDIV) ;
 
     // Setup interrupts for RX machine
     pio_interrupt_clear(pio_1, 0) ;
