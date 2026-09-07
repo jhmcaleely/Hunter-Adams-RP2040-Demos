@@ -538,9 +538,9 @@ void setupIdleCheck() {
 void setupCANTX(irq_handler_t handler) {
 
     // Power off transciever (avoids transients on bus)
-    gpio_init(TRANSCIEVER_EN) ;
-    gpio_set_dir(TRANSCIEVER_EN, GPIO_OUT) ;
-    gpio_put(TRANSCIEVER_EN, 0) ;
+    gpio_init(TRANSCIEVER_SLNT) ;
+    gpio_set_dir(TRANSCIEVER_SLNT, GPIO_OUT) ;
+    gpio_put(TRANSCIEVER_SLNT, 1) ;
 
     // Setup the idle checking system
     setupIdleCheck() ;
@@ -580,7 +580,7 @@ void setupCANTX(irq_handler_t handler) {
     sleep_ms(1) ;
 
     // Power on transciever
-    gpio_put(TRANSCIEVER_EN, 1) ;
+    gpio_put(TRANSCIEVER_SLNT, 0) ;
 }
 
 // Function which sets up CAN RX machine. Adds and initializes the PIO program
