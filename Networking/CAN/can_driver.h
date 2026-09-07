@@ -15,8 +15,8 @@
 //                         CLOCK AND CHECKSUM PARAMETERS
 //
 // Clock settings
-#define OVERCLOCK_RATE  160000
-#define CLKDIV          5
+#define SYSTEM_CLOCK_RATE  128000
+#define CLKDIV          32
 // Checksum polynomial and initial value
 #define CRC16_POLY              0x8005
 #define CRC_INIT                0xFFFF
