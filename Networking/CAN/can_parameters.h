@@ -8,10 +8,9 @@
 //                             INTERFACE PARAMETERS
 //
 // GPIO pins
-#define CAN_TX            3
-#define CAN_RX            2
-#define LED_PIN          25
-#define TRANSCIEVER_SLNT  4
+#define CAN_TX          2
+#define LED_PIN         25
+#define TRANSCIEVER_EN  4
 
 
 //                                CAN PARAMETERS
