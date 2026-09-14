@@ -643,8 +643,6 @@ static inline void resetTransmitter() {
     pio_interrupt_clear(pio_0, 0) ;
     // Reset the DMA channel read address, don't start channel yet
     dma_channel_set_read_addr(dma_chan_0, tx_packet_stuffed_pointer, false) ;
-    // WHY IS THIS NECESSARY? Did not need this until I added the transcievers
-    sleep_us(10) ;
 }
 
 // Call in the rx_handler interrupt service routing to reset the receiver
