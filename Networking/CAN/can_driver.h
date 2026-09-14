@@ -427,12 +427,12 @@ unsigned char attemptPacketReceive() {
     // Unstuff the received packet
     unBitStuff(rx_packet_stuffed, rx_packet_unstuffed) ;
 
-    // // Print the packet after unstuffing
-    // printf("Packet after unstuffing:\n") ;
-    // for (i=0; i<22; i++){
-    //     printf("%02x", rx_packet_unstuffed[i]) ;
-    // }
-    // printf("\n\n") ;
+    // Print the packet after unstuffing
+    printf("Packet after unstuffing:\n") ;
+    for (i=0; i<22; i++){
+        printf("%02x", rx_packet_unstuffed[i]) ;
+    }
+    printf("\n\n") ;
 
     // Check arbitration bits
     if ((rx_packet_unstuffed[0]!=((MY_ARBITRATION_VALUE>>8)&0xFF))&&
@@ -448,7 +448,7 @@ unsigned char attemptPacketReceive() {
 
     // Check packet length
     if (rx_packet_unstuffed[3] > MAX_PAYLOAD_SIZE) {
-        // printf("Invalid packet length\n") ;
+        printf("Invalid packet length\n") ;
         return 0 ;
     }
 
@@ -457,12 +457,14 @@ unsigned char attemptPacketReceive() {
     for (i = 0; i < (rx_packet_unstuffed[3]+4); i++) {
       checksum = culCalcCRC((rx_packet_unstuffed[i])&0xFF, checksum);
     }
+    printf("Computed checksum: %04x\n", checksum);
+    printf("Received checksum: %02x%02x\n", rx_packet_unstuffed[i], rx_packet_unstuffed[i+1]);
     if ((rx_packet_unstuffed[i]==((checksum>>8)&0xFF)) &&
         (rx_packet_unstuffed[i+1]==((checksum)&0xFF))) {
         return 1 ;
     }
     else {
-        // printf("Failed at checksum\n") ;
+        printf("Failed at checksum\n") ;
         return 0 ;
     }
 }

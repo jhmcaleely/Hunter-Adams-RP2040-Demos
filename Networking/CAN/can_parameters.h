@@ -20,7 +20,7 @@
 #define MAX_PACKET_LEN          MAX_PAYLOAD_SIZE+8
 #define MAX_STUFFED_PACKET_LEN  MAX_PACKET_LEN+(MAX_PACKET_LEN>>1)
 // My own identity, and a broadcast value
-#define MY_ARBITRATION_VALUE    0x3234
+#define MY_ARBITRATION_VALUE    0xb041
 #define NETWORK_BROADCAST       0x5555
 // Time to wait (in bit times) for bus to be idle before tx. Dynamically modifiable.
 unsigned int tx_idle_time = 500 ;

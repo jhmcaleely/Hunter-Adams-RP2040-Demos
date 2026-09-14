@@ -77,7 +77,7 @@ static PT_THREAD (protothread_send(struct pt *pt))
     sleep_ms(2000) ;
 
     // How many packets should we send?
-    static int number_to_send = 1000000 ;
+    static int number_to_send = 0 ;
       while(1) {
         // If packets remain . . .
         if (number_to_send) {
