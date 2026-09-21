@@ -410,6 +410,33 @@ void unBitStuff(unsigned char * stuffed, unsigned char * unstuffed) {
     }
 
 }
+
+
+// https://www.port.de/fileadmin/user_upload/Dateien_IST_fuer_Migration/CAN20A.pdf
+// appears to be canonical result for 'CAN Specification 2.0A'
+uint16_t can_crc15_next(uint16_t crc, uint8_t data, int len) {
+
+    for (int i = 0; i < len; i++) {
+
+
+        uint16_t nxtbit = data & 0x80;
+        data <<= 1;
+
+        nxtbit <<= 7;
+
+        uint8_t crcnext = (nxtbit ^ (crc & 0x4000)) ? 1 : 0 ;
+
+        crc <<= 1;
+        crc &= 0x7FFF;
+        if (crcnext) {
+            crc ^= 0x4599;
+        }
+        crc &= 0x7FFF;
+    }
+
+    return crc;
+}
+
 // Function assumes that a stuffed packet lives in rx_packet_stuffed.
 // It unpacks that packet, checks the arbitration bits, and checks the
 // checksum. If it is a valid packet (correct arbitration and checksum)
@@ -438,43 +465,67 @@ unsigned char attemptPacketReceive() {
     uint8_t prio = (rx_packet_unstuffed[0] & 0xF0) >> 4 ;
     uint8_t canhi = rx_packet_unstuffed[0] & 0x0F;
     uint8_t canlo = rx_packet_unstuffed[1] & 0xE0;
-    uint16_t canid = (canhi << 8) | canlo;
-    canid = canid >> 5 ;
+    uint16_t canid = (canhi << 3) | (canlo >> 5);
     printf("Decoded CAN ID prio: 0x%01X ID %d\n", prio, canid);
 
-    // Check arbitration bits
-    if ((rx_packet_unstuffed[0]!=((MY_ARBITRATION_VALUE>>8)&0xFF))&&
-        (rx_packet_unstuffed[0]!=((NETWORK_BROADCAST>>8)&0xFF))) {
-        // printf("Failed at arbitration 1\n");
-        return 0 ;
+    uint8_t dlcHn = rx_packet_unstuffed[1] & 0x03;
+    uint8_t dlcLn = (rx_packet_unstuffed[2] & 0xC0) >> 6;
+    uint8_t dlc = (dlcHn << 2) | dlcLn;
+    printf("Decoded DLC: %d\n", dlc);
+
+    uint8_t payload[5];
+
+    payload[0] = (rx_packet_unstuffed[2] & 0x3F) << 2;
+    payload[0] |= (rx_packet_unstuffed[3] & 0xC0) >> 6;
+    printf("Decoded payload1: %02x\n", payload[0]);
+
+    payload[1] = (rx_packet_unstuffed[3] & 0x3F) << 2;
+    payload[1] |= (rx_packet_unstuffed[4] & 0xC0) >> 6;
+    printf("Decoded payload2: %02x\n", payload[1]);
+
+    payload[2] = (rx_packet_unstuffed[4] & 0x3F) << 2;
+    payload[2] |= (rx_packet_unstuffed[5] & 0xC0) >> 6;
+    printf("Decoded payload3: %02x\n", payload[2]);
+
+    payload[3] = (rx_packet_unstuffed[5] & 0x3F) << 2;
+    payload[3] |= (rx_packet_unstuffed[6] & 0xC0) >> 6;
+    printf("Decoded payload4: %02x\n", payload[3]);
+
+    payload[4] = (rx_packet_unstuffed[6] & 0x3F) << 2;
+    payload[4] |= (rx_packet_unstuffed[7] & 0xC0) >> 6;
+    printf("Decoded payload5: %02x\n", payload[4]);
+
+    uint8_t cbus_op = payload[0];
+    uint16_t cbus_node = (payload[1] << 8) | payload[2];
+    uint16_t cbus_event = (payload[3] << 8) | payload[4];
+
+    printf("Decoded CBUS operation: OP 0x%02x, Node: %d, Event: %d\n", cbus_op, cbus_node, cbus_event);
+
+    uint8_t crchi = (rx_packet_unstuffed[7] & 0x3F) << 2;
+    crchi |= (rx_packet_unstuffed[8] & 0xC0) >> 6;
+    uint8_t crclo = (rx_packet_unstuffed[8] & 0x3F) << 2;
+    crclo |= (rx_packet_unstuffed[9] & 0xC0) >> 6;
+
+    uint16_t crc = (crchi << 8) | crclo;
+    crc  = crc >> 1;
+
+    uint16_t checsum = 0;
+    checsum = can_crc15_next(checsum, 0, 1);
+    for (int i = 0; i < 7; i++) {
+        checsum = can_crc15_next(checsum, rx_packet_unstuffed[i], 8);
     }
-    if ((rx_packet_unstuffed[1]!=((MY_ARBITRATION_VALUE)&0xFF))&&
-        (rx_packet_unstuffed[1]!=((NETWORK_BROADCAST)&0xFF))) {
-        // printf("Failed at arbitration 2\n");
-        return 0 ;
+    checsum = can_crc15_next(checsum, rx_packet_unstuffed[7], 2);
+    
+
+    printf("Computed checksum: %04x\n", checsum);
+    printf("Received checksum: %04x\n", crc);
+
+    if (checsum != crc) {
+        printf("Checksum mismatch!\n");
+        return 0;
     }
 
-    // Check packet length
-    if (rx_packet_unstuffed[3] > MAX_PAYLOAD_SIZE) {
-        printf("Invalid packet length\n") ;
-        return 0 ;
-    }
-
-    // Compute and check checksum
-    unsigned short checksum = CRC_INIT; // Init value for CRC calculation
-    for (i = 0; i < (rx_packet_unstuffed[3]+4); i++) {
-      checksum = culCalcCRC((rx_packet_unstuffed[i])&0xFF, checksum);
-    }
-    printf("Computed checksum: %04x\n", checksum);
-    printf("Received checksum: %02x%02x\n", rx_packet_unstuffed[i], rx_packet_unstuffed[i+1]);
-    if ((rx_packet_unstuffed[i]==((checksum>>8)&0xFF)) &&
-        (rx_packet_unstuffed[i+1]==((checksum)&0xFF))) {
-        return 1 ;
-    }
-    else {
-        printf("Failed at checksum\n") ;
-        return 0 ;
-    }
+    return 1;
 }
 
 
