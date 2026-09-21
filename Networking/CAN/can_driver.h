@@ -434,6 +434,14 @@ unsigned char attemptPacketReceive() {
     }
     printf("\n\n") ;
 
+    // print MERG CAN/CBUS decode
+    uint8_t prio = (rx_packet_unstuffed[0] & 0xF0) >> 4 ;
+    uint8_t canhi = rx_packet_unstuffed[0] & 0x0F;
+    uint8_t canlo = rx_packet_unstuffed[1] & 0xE0;
+    uint16_t canid = (canhi << 8) | canlo;
+    canid = canid >> 5 ;
+    printf("Decoded CAN ID prio: 0x%01X ID %d\n", prio, canid);
+
     // Check arbitration bits
     if ((rx_packet_unstuffed[0]!=((MY_ARBITRATION_VALUE>>8)&0xFF))&&
         (rx_packet_unstuffed[0]!=((NETWORK_BROADCAST>>8)&0xFF))) {
