@@ -437,6 +437,9 @@ uint16_t can_crc15_next(uint16_t crc, uint8_t data, int len) {
     return crc;
 }
 
+uint8_t can_dominant_bit = 0;
+uint8_t can_recessive_bit = 1;
+
 // Function assumes that a stuffed packet lives in rx_packet_stuffed.
 // It unpacks that packet, checks the arbitration bits, and checks the
 // checksum. If it is a valid packet (correct arbitration and checksum)
@@ -474,7 +477,10 @@ unsigned char attemptPacketReceive() {
 
     uint8_t can_control_r1 = (rx_packet_unstuffed[1] & 0x20) >> 5;
     uint8_t can_control_r0 = (rx_packet_unstuffed[1] & 0x10) >> 4;
-    printf("Decoded CAN Control R1: %d, R0: %d\n", can_control_r1, can_control_r0);
+    if (can_control_r1 != can_dominant_bit || can_control_r0 != can_dominant_bit) {
+        printf("Unexpected CAN Control bits! (R1: %d, R0: %d)\n", can_control_r1, can_control_r0);
+        return 0;
+    }
 
     uint8_t dlcHn = rx_packet_unstuffed[1] & 0x03;
     uint8_t dlcLn = (rx_packet_unstuffed[2] & 0xC0) >> 6;
@@ -491,7 +497,13 @@ unsigned char attemptPacketReceive() {
     uint8_t crclo = can_data_n_crcfield[i-1];
     uint16_t crc = (crchi << 8) | crclo;
     uint8_t crc_delim = crc & 0x1;
+    if (crc_delim != can_recessive_bit) {
+        printf("Unexpected CRC delimiter bit!\n");
+        return 0;
+    }
+
     crc  = crc >> 1;
+    printf("Received checksum: %04x\n", crc);
 
     uint16_t checsum = 0;
     checsum = can_crc15_next(checsum, 0, 1);
@@ -499,10 +511,7 @@ unsigned char attemptPacketReceive() {
         checsum = can_crc15_next(checsum, rx_packet_unstuffed[i], 8);
     }
     checsum = can_crc15_next(checsum, rx_packet_unstuffed[i], 2);
-    
-
     printf("Computed checksum: %04x\n", checsum);
-    printf("Received checksum: %04x\n", crc);
 
     if (checsum != crc) {
         printf("Checksum mismatch!\n");
