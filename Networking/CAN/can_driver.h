@@ -462,59 +462,43 @@ unsigned char attemptPacketReceive() {
     printf("\n\n") ;
 
     // print MERG CAN/CBUS decode
-    uint8_t prio = (rx_packet_unstuffed[0] & 0xF0) >> 4 ;
-    uint8_t canhi = rx_packet_unstuffed[0] & 0x0F;
-    uint8_t canlo = rx_packet_unstuffed[1] & 0xE0;
-    uint16_t canid = (canhi << 3) | (canlo >> 5);
-    printf("Decoded CAN ID prio: 0x%01X ID %d\n", prio, canid);
+    uint16_t can_arbitration = rx_packet_unstuffed[0] << 8 | rx_packet_unstuffed[1];
+    can_arbitration >>= 4;
+    printf("Decoded CAN arbitration: 0x%03x\n", can_arbitration);
+
+    uint16_t can_identifier = can_arbitration >> 1;
+    uint8_t can_rtr = can_arbitration & 0x1;
+
+    printf("Decoded CAN identifier: 0x%03x\n", can_identifier);
+    printf("Decoded CAN RTR: %d\n", can_rtr);
+
+    uint8_t can_control_r1 = (rx_packet_unstuffed[1] & 0x20) >> 5;
+    uint8_t can_control_r0 = (rx_packet_unstuffed[1] & 0x10) >> 4;
+    printf("Decoded CAN Control R1: %d, R0: %d\n", can_control_r1, can_control_r0);
 
     uint8_t dlcHn = rx_packet_unstuffed[1] & 0x03;
     uint8_t dlcLn = (rx_packet_unstuffed[2] & 0xC0) >> 6;
     uint8_t dlc = (dlcHn << 2) | dlcLn;
-    printf("Decoded DLC: %d\n", dlc);
+    printf("Decoded CAN Control DLC: %d\n", dlc);
 
-    uint8_t payload[5];
+    uint8_t can_data_n_crcfield[10];
+    for (i = 0; i < dlc + 2; i++) {
+        can_data_n_crcfield[i] = (rx_packet_unstuffed[i+2] & 0x3F) << 2;
+        can_data_n_crcfield[i] |= (rx_packet_unstuffed[i+3] & 0xC0) >> 6;
+    }
 
-    payload[0] = (rx_packet_unstuffed[2] & 0x3F) << 2;
-    payload[0] |= (rx_packet_unstuffed[3] & 0xC0) >> 6;
-    printf("Decoded payload1: %02x\n", payload[0]);
-
-    payload[1] = (rx_packet_unstuffed[3] & 0x3F) << 2;
-    payload[1] |= (rx_packet_unstuffed[4] & 0xC0) >> 6;
-    printf("Decoded payload2: %02x\n", payload[1]);
-
-    payload[2] = (rx_packet_unstuffed[4] & 0x3F) << 2;
-    payload[2] |= (rx_packet_unstuffed[5] & 0xC0) >> 6;
-    printf("Decoded payload3: %02x\n", payload[2]);
-
-    payload[3] = (rx_packet_unstuffed[5] & 0x3F) << 2;
-    payload[3] |= (rx_packet_unstuffed[6] & 0xC0) >> 6;
-    printf("Decoded payload4: %02x\n", payload[3]);
-
-    payload[4] = (rx_packet_unstuffed[6] & 0x3F) << 2;
-    payload[4] |= (rx_packet_unstuffed[7] & 0xC0) >> 6;
-    printf("Decoded payload5: %02x\n", payload[4]);
-
-    uint8_t cbus_op = payload[0];
-    uint16_t cbus_node = (payload[1] << 8) | payload[2];
-    uint16_t cbus_event = (payload[3] << 8) | payload[4];
-
-    printf("Decoded CBUS operation: OP 0x%02x, Node: %d, Event: %d\n", cbus_op, cbus_node, cbus_event);
-
-    uint8_t crchi = (rx_packet_unstuffed[7] & 0x3F) << 2;
-    crchi |= (rx_packet_unstuffed[8] & 0xC0) >> 6;
-    uint8_t crclo = (rx_packet_unstuffed[8] & 0x3F) << 2;
-    crclo |= (rx_packet_unstuffed[9] & 0xC0) >> 6;
-
+    uint8_t crchi = can_data_n_crcfield[i-2];
+    uint8_t crclo = can_data_n_crcfield[i-1];
     uint16_t crc = (crchi << 8) | crclo;
+    uint8_t crc_delim = crc & 0x1;
     crc  = crc >> 1;
 
     uint16_t checsum = 0;
     checsum = can_crc15_next(checsum, 0, 1);
-    for (int i = 0; i < 7; i++) {
+    for (i = 0; i < dlc + 2; i++) {
         checsum = can_crc15_next(checsum, rx_packet_unstuffed[i], 8);
     }
-    checsum = can_crc15_next(checsum, rx_packet_unstuffed[7], 2);
+    checsum = can_crc15_next(checsum, rx_packet_unstuffed[i], 2);
     
 
     printf("Computed checksum: %04x\n", checsum);
@@ -524,6 +508,36 @@ unsigned char attemptPacketReceive() {
         printf("Checksum mismatch!\n");
         return 0;
     }
+    
+    uint8_t* can_data_field = NULL;
+    if (dlc > 0) {
+        can_data_field = &can_data_n_crcfield[0];
+        printf("CAN Data field: ");
+        for (i = 0; i < dlc; i++) {
+            printf("%02x ", can_data_field[i]);
+        }
+        printf("\n");
+    }
+
+    // MERG CAN ID for CBUS
+    uint8_t cbus_MjPri = (can_arbitration & 0xC00) >> 10; 
+    uint8_t cbus_MinPri = (can_arbitration & 0x300) >> 8;
+    uint8_t cbus_id = (can_arbitration & 0xFE) >> 1;
+    printf("Decoded CBUS CAN: MjPrj: 0x%01X MinPrj: 0x%01X ID: 0x%02X (%d)\n", cbus_MjPri, cbus_MinPri, cbus_id, cbus_id);
+
+    uint8_t* cbus_message = &can_data_field[0];
+    uint8_t cbus_len = (cbus_message[0] & 0xe0) >> 5;
+    if (cbus_len != (dlc - 1)) {
+        printf("Invalid CBUS length: expected %d, got %d\n", dlc - 1, cbus_len);
+    }
+    printf("Decoded CBUS length: %d\n", cbus_len);
+
+    uint8_t cbus_op = cbus_message[0];
+    uint16_t cbus_node = (cbus_message[1] << 8) | cbus_message[2];
+    uint16_t cbus_event = (cbus_message[3] << 8) | cbus_message[4];
+
+    printf("Decoded CBUS operation: OP 0x%02x, Node: %d, Event: %d\n", cbus_op, cbus_node, cbus_event);
+
 
     return 1;
 }
