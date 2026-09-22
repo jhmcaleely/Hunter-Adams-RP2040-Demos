@@ -1,0 +1,14 @@
+Packet after unstuffing:
+b0416440fb00021deddf800000000000000000000000
+b0416400fb00022e19df000000000000000000000000
+
+Invalid packet length
+
+
+Packet after unstuffing:
+
+
+Computed checksum: 1d03
+Received checksum: fb00
+Failed at checksum
+
