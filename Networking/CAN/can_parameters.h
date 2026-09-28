@@ -39,6 +39,9 @@ unsigned char payload_len  = 10 ;
 unsigned short payload[MAX_PAYLOAD_SIZE] = {0x1335, 0x5678, 0x9012,
                                             0x3456, 0x7890};
 
+#define max_merg_payload 8
+unsigned char cbus_payload[max_merg_payload] = {0} ;
+
 
 //                           BUFFER FOR RECEIVED DATA
 //
