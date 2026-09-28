@@ -64,7 +64,9 @@ void rx_handler() {
     acceptNewPacket() ;
 }
 
-
+static char is_odd(int value) {
+    return value & 1 ;
+}
 
 //                                 THREADS (USER CODE)
 //
@@ -76,29 +78,31 @@ static PT_THREAD (protothread_send(struct pt *pt))
     // Brief delay before starting up
     sleep_ms(2000) ;
 
+    cbus_payload[0] = 0x90;
+    cbus_payload[1] = 0x01;
+    cbus_payload[2] = 0x00;
+    cbus_payload[3] = 0x00;
+    cbus_payload[4] = 0x08;
+
     // How many packets should we send?
-    static int number_to_send = 0 ;
+    static int number_to_send = 10 ;
       while(1) {
         // If packets remain . . .
         if (number_to_send) {
             // Indicate that it is unsafe to transmit
             unsafe_to_tx = 1 ;
             // Send a packet
-            sendPacket() ;
+            sendCBUSPacket() ;
             // Decrement the remaining number of packets to send ;
             number_to_send -= 1 ;
-            // Randomize the payload WHILE previous packet is being sent
-            payload[0] = rand()&0b0111111111111111 ;
-            payload[1] = rand()&0b0111111111111111 ;
-            payload[2] = rand()&0b0111111111111111 ;
-            payload[3] = rand()&0b0111111111111111 ;
-            payload[4] = rand()&0b0111111111111111 ;
-            // Print some data occasionally
-            if (((number_to_send+1) % 1000)==0) {
-                printf("Sent: %d\n", number_sent) ;
-                printf("Received: %d\n", number_received) ;
-                printf("Rejected: %d\n\n", number_missed) ;
-            }
+            cbus_payload[0] = number_to_send & 1 ? 0x90 : 0x91;
+            cbus_payload[1] = 0x01;
+            cbus_payload[2] = 0x00;
+            cbus_payload[3] = 0x00;
+            cbus_payload[4] = 0x08;
+
+            sleep_ms(2000); // blink slowly
+
             // Wait until it's safe to send again
             while(unsafe_to_tx) {} ;
         }
